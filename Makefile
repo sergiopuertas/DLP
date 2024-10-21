@@ -1,4 +1,3 @@
-
 all: lambda parser lexer main
 	ocamlc -o top lambda.cmo parser.cmo lexer.cmo main.cmo
 
