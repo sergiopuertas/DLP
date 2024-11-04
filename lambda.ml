@@ -47,15 +47,23 @@ let getbinding ctx x =
 
 (* TYPE MANAGEMENT (TYPING) *)
 
-let rec string_of_ty ty = match ty with
-    TyBool ->
-      "Bool"
-  | TyNat ->
-      "Nat"
+let rec string_of_ty ty = 
+  match ty with
+  | TyBool -> "Bool"
+  | TyNat -> "Nat"
+  | TyString -> "String"
   | TyArr (ty1, ty2) ->
-      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
-  | TyString -> "String"    
-;;
+      let s1 = string_of_ty_prec ty1 10 in
+      let s2 = string_of_ty_prec ty2 0 in
+      if ty1 <> TyArr (ty1, ty2) then s1 ^ " -> " ^ s2
+      else "(" ^ s1 ^ ") -> " ^ s2
+    
+and string_of_ty_prec ty prec = 
+  match ty with
+  | TyArr (ty1, ty2) ->
+      let s = string_of_ty ty in
+      if prec > 0 then "(" ^ s ^ ")" else s
+  | _ -> string_of_ty ty
 
 exception Type_error of string
 ;;
@@ -144,42 +152,53 @@ let rec typeof ctx tm = match tm with
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
-let rec string_of_term = function
-    TmTrue ->
-      "true"
-  | TmFalse ->
-      "false"
-  | TmIf (t1,t2,t3) ->
-      "if " ^ "(" ^ string_of_term t1 ^ ")" ^
-      " then " ^ "(" ^ string_of_term t2 ^ ")" ^
-      " else " ^ "(" ^ string_of_term t3 ^ ")"
-  | TmZero ->
-      "0"
+let rec string_of_term tm = string_of_term_prec tm 0
+
+and string_of_term_prec tm prec =
+  match tm with
+  | TmTrue -> "true"
+  | TmFalse -> "false"
+  | TmIf (t1, t2, t3) ->
+      let s = "if " ^ string_of_term_prec t1 0 ^ " then " ^
+              string_of_term_prec t2 0 ^ " else " ^ string_of_term_prec t3 0 in
+      if prec > 0 then "(" ^ s ^ ")" else s
+
+  | TmZero -> "0"
   | TmSucc t ->
-     let rec f n t' = match t' with
-          TmZero -> string_of_int n
-        | TmSucc s -> f (n+1) s
-        | _ -> "succ " ^ "(" ^ string_of_term t ^ ")"
-      in f 1 t
-  | TmPred t ->
-      "pred " ^ "(" ^ string_of_term t ^ ")"
-  | TmIsZero t ->
-      "iszero " ^ "(" ^ string_of_term t ^ ")"
-  | TmVar s ->
-      s
+      let rec f n t' =
+        match t' with
+        | TmZero -> string_of_int n
+        | TmSucc s -> f (n + 1) s
+        | _ -> "succ (" ^ string_of_term_prec t 10 ^ ")"
+      in
+      f 1 t
+
+  | TmPred t -> "pred " ^ string_of_term_prec t 10
+  | TmIsZero t -> "iszero " ^ string_of_term_prec t 10
+
+  | TmVar s -> s
+
   | TmAbs (s, tyS, t) ->
-      "(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
+      let s = "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term_prec t 0 in
+      if prec > 0 then "(" ^ s ^ ")" else s
+
   | TmApp (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
+      let s = string_of_term_prec t1 10 ^ " " ^ string_of_term_prec t2 11 in
+      if prec > 10 then "(" ^ s ^ ")" else s
+
   | TmLetIn (s, t1, t2) ->
-      "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
-  | TmFix t ->
-      "(fix " ^ string_of_term t ^ ")" 
-  | TmString s -> 
-      "\"" ^ s ^ "\""
+      let s = "let " ^ s ^ " = " ^ string_of_term_prec t1 0 ^ " in " ^ string_of_term_prec t2 0 in
+      if prec > 0 then "(" ^ s ^ ")" else s
+
+  | TmFix t -> "fix " ^ string_of_term_prec t 10
+  | TmString str -> "\"" ^ str ^ "\""
   | TmConcat (t1, t2) ->
-      "concat" ^ "(" ^ string_of_term t1 ^ ")" ^ " " ^ "(" ^ string_of_term t2 ^ ")"
-;;
+      let s = "concat " ^ string_of_term_prec t1 10 ^ " " ^ string_of_term_prec t2 10 in
+      if prec > 10 then "(" ^ s ^ ")" else s
+  ;;
+
+
+
 
 let rec ldif l1 l2 = match l1 with
     [] -> []
