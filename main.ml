@@ -5,6 +5,8 @@ open Lexing;;
 open Lambda;;
 open Parser;;
 open Lexer;;
+
+
 let read_input ()=
   let mark () = print_string ">> " in
   let prompt () = print_string "   " in
@@ -24,10 +26,8 @@ let top_level_loop () =
   print_endline "Evaluator of lambda expressions...";
   let rec loop ctx =
     try
-      let tm = s token (from_string (read_input ())) in
-      let tyTm = typeof ctx tm in
-      print_endline (string_of_term (eval tm) ^ " : " ^ string_of_ty tyTm);
-      loop ctx
+      let c = s token (from_string(read_input()) ) in
+      loop (execute ctx c)
     with
        Lexical_error ->
          print_endline "lexical error";
@@ -39,7 +39,7 @@ let top_level_loop () =
          print_endline ("type error: " ^ e);
          loop ctx
      | End_of_file ->
-         print_endline "...bye!!!"
+         print_endline "...pescao!!!"
   in
     loop emptyctx
   ;;

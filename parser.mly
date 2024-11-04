@@ -19,6 +19,7 @@
 %token BOOL
 %token NAT
 %token STRING
+%token QUIT
 
 %token LPAREN
 %token RPAREN
@@ -33,13 +34,14 @@
 %token <string> STRINGV
 
 %start s
-%type <Lambda.term> s
+%type <Lambda.command> s
 
 %%
 
 s :
-    term EOF
-      { $1 }
+    | IDV EQ term EOF { Bind ($1,$3)}
+    | term EOF { Eval $1 }
+    | QUIT EOF { Quit }
 
 term :
     appTerm

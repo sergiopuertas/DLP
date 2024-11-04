@@ -23,6 +23,7 @@ rule token = parse
   | "Bool"      { BOOL }
   | "Nat"       { NAT }
   | "String"    { STRING }
+  | "chao"      { QUIT } 
   | '('         { LPAREN }
   | ')'         { RPAREN }
   | '.'         { DOT }
