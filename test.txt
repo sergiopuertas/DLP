@@ -1,0 +1,97 @@
+----------- MULTI-LINE EXPRESSIONS -------------
+
+input = "Long live
+   rock'n roll 
+    - Rainbow";;
+
+
+----------- FIXED POINT COMBINER ---------------
+
+PRODUCT:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+        
+        letrec prod : Nat -> Nat -> Nat =
+        lambda n : Nat. lambda m : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        sum (prod (pred n) m) m 
+in prod 2 3;;
+
+FACTORIAL:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+
+        letrec prod : Nat -> Nat -> Nat =
+        lambda n : Nat. lambda m : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        sum (prod (pred n) m) m in
+                
+                letrec fac: Nat -> Nat =
+                lambda n : Nat. 
+                        if iszero n then 
+                                1 
+                        else 
+                                prod n (fac (pred n))
+in fac 3;;
+
+FIBONACCI:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+
+        letrec fib: Nat -> Nat =
+        lambda n : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        if iszero (pred n) then 
+                                1 
+                        else 
+                                sum(fib (pred (pred n))) (fib (pred n)) 
+in fib 6;; 
+
+----------- GLOBAL DEFINITION CONTEXT ----------
+
+str = "Hello world" ;;
+
+concat str str ;;
+    
+----------- STRINGS ----------------------------
+
+"This is a string" ;;
+
+a= "May the 4th" ;;
+
+concat a " be with you" ;;
+
+
+
+----------- TUPLES-----------------------------
+
+let t = {true, "hola", 3} in t.1 ;;
+
+let t = {true, "hola", let x = 2 in x + 1} in t.3 ;;
+
+t= {false, "this is a String", 3};; 
+
+t.2;;
+
+

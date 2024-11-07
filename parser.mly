@@ -72,7 +72,15 @@ appTerm :
   | appTerm projTerm
       { TmApp ($1, $2) }
 
+ projTerm :
+   | projTerm DOT INTV
+      { TmProj ($1,(string_of_int $3))}
       
+   | projTerm DOT STRINGV
+      { TmProj ($1,$3)}
+
+   | atomicTerm
+      { $1 }      
 
 
 atomicTerm :
@@ -95,7 +103,10 @@ atomicTerm :
    |LBRACKET tuplesTM RBRACKET
      { TmTuple $2 }
 
-
+tuplesTM:
+   | term { [$1] }
+   | term COMMA tuplesTM { $1::$3 }
+   
 ty :
     atomicTy
       { $1 }
@@ -116,22 +127,9 @@ atomicTy :
       { TyTuple $2 }
 
 
-
-tuplesTM:
-   | term { [$1] }
-   | term COMMA tuplesTM { $1::$3 }
-
 tuplesTY:
   | ty { [$1] }
   | ty COMMA tuplesTY { $1::$3 }   
 
 
-projTerm :
-   | projTerm DOT INTV
-      { TmProj ($1,(string_of_int $3))}
-      
-   | projTerm DOT STRINGV
-      { TmProj ($1,$3)}
 
-   | atomicTerm
-      { $1 } 
