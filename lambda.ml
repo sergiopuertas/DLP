@@ -6,6 +6,7 @@ type ty =
   | TyNat
   | TyArr of ty * ty
   | TyString
+  | TyTuple of ty list
 ;;
 
 type term =
@@ -23,6 +24,8 @@ type term =
   | TmFix of term 
   | TmString of string
   | TmConcat of term * term
+  | TmTuple of term list
+  | TmProj of term * string
 ;;
 
 type command = 
@@ -80,6 +83,14 @@ let rec string_of_ty ty =
       let s2 = string_of_ty_prec ty2 0 in
       if ty1 <> TyArr (ty1, ty2) then s1 ^ " -> " ^ s2
       else "(" ^ s1 ^ ") -> " ^ s2
+
+  | TyTuple tys -> 
+      let rec f = function
+          [] -> ""
+        | (ty::[]) -> string_of_ty ty
+        | (ty::tail) -> string_of_ty ty ^ ", " ^ f tail
+      in
+      "(" ^ f tys ^ ")"
     
 and string_of_ty_prec ty prec = 
   match ty with
@@ -170,7 +181,16 @@ let rec typeof ctx tm = match tm with
   | TmConcat (t1, t2) -> 
       if typeof ctx t1 = TyString && typeof ctx t2 = TyString then TyString
       else raise (Type_error "arguments of concat are not strings")
-;;
+
+  | TmTuple tms -> TyTuple (List.map (typeof ctx) tms)  (* Devuelve el typeof de cada elemento de la tupla *)  
+
+  | TmProj (t1, i) -> 
+    (match typeof ctx t1 with
+        TyTuple tys -> 
+              (try List.nth tys (int_of_string i - 1) with  
+                  _ -> raise (Type_error ("cannot project element " ^ i ^ ", this index does not exist in the tuple")))
+        | _ -> raise (Type_error "projection of non-tuple type"))
+  ;;
 
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -218,6 +238,24 @@ and string_of_term_prec tm prec =
   | TmConcat (t1, t2) ->
       let s = "concat " ^ string_of_term_prec t1 10 ^ " " ^ string_of_term_prec t2 10 in
       if prec > 10 then "(" ^ s ^ ")" else s
+
+  | TmTuple tms ->
+    let rec f tms' =
+      match tms' with
+          [] -> ""
+        | (tm::[]) -> string_of_term tm
+        | (tm::t) -> string_of_term tm ^ ", " ^ f t
+    in "{" ^ f tms ^ "}"
+
+  | TmProj (t1, n) ->
+      let rec proj_string t n =
+        match t with
+        | TmTuple tms ->
+            if n > 0 && n <= List.length tms then string_of_term_prec (List.nth tms (n - 1)) 0
+            else raise (Failure "tuple index out of bounds")
+        | _ -> string_of_term_prec t 10 ^ "." ^ string_of_int n
+      in proj_string t1 (int_of_string n)
+
   ;;
 
 
@@ -261,7 +299,8 @@ let rec free_vars tm = match tm with
   | TmString _ -> []
   | TmConcat (t1, t2) -> 
     lunion (free_vars t1) (free_vars t2)    
-     
+  | TmTuple tms -> List.flatten (List.map free_vars tms)
+  | TmProj (t, n) -> free_vars t
 ;;
 
 let rec fresh_name x l =
@@ -305,7 +344,11 @@ let rec subst x s tm = match tm with
       TmFix (subst x s t)  
       
   | TmString st -> TmString st
-  | TmConcat (t1, t2) -> TmConcat (subst x s t1, subst x s t2)    
+  | TmConcat (t1, t2) -> TmConcat (subst x s t1, subst x s t2)
+  | TmTuple tms -> TmTuple (List.map (subst x s) tms)
+
+  | TmProj (t, n) -> TmProj (subst x s t, n)
+
 ;;
 
 let rec isnumericval tm = match tm with
@@ -319,6 +362,7 @@ let rec isval tm = match tm with
   | TmFalse -> true
   | TmAbs _ -> true
   | TmString _ -> true
+  | TmTuple tms -> List.for_all isval tms
   | t when isnumericval t -> true
   | _ -> false
 ;;
@@ -418,6 +462,25 @@ let rec eval1 ctx tm = match tm with
 
   | TmVar s ->
       getvbinding ctx s
+
+  | TmTuple tup ->
+      let rec eval_tuple tup = match tup with
+        | [] -> raise NoRuleApplies
+        | tm::t when isval tm -> tm::(eval_tuple t)
+        | tm::t -> (eval1 ctx tm)::t
+      in TmTuple (eval_tuple tup)
+
+  (* E-ProjTuple *)
+    | TmProj (TmTuple tms, n) ->
+    let index = int_of_string n in
+    if index > 0 && index <= List.length tms then List.nth tms (index - 1)
+    else raise NoRuleApplies
+
+(* E-Proj *)
+  | TmProj (t, n) ->
+    let t' = eval1 ctx t in
+    TmProj (t', n)
+
   | _ ->
       raise NoRuleApplies
 ;;

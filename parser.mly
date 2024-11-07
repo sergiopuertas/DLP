@@ -23,6 +23,9 @@
 
 %token LPAREN
 %token RPAREN
+%token LBRACKET
+%token RBRACKET 
+%token COMMA
 %token DOT
 %token EQ
 %token COLON
@@ -56,18 +59,20 @@ term :
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
 
 appTerm :
-    atomicTerm
+    projTerm
       { $1 }
-  | SUCC atomicTerm
+  | SUCC projTerm
       { TmSucc $2 }
-  | PRED atomicTerm
+  | PRED projTerm
       { TmPred $2 }
-  | ISZERO atomicTerm
+  | ISZERO projTerm
       { TmIsZero $2 }
-  | CONCAT atomicTerm atomicTerm
+  | CONCAT projTerm projTerm
       { TmConcat ($2, $3) }    
-  | appTerm atomicTerm
+  | appTerm projTerm
       { TmApp ($1, $2) }
+
+      
 
 
 atomicTerm :
@@ -87,11 +92,16 @@ atomicTerm :
   | STRINGV 
       { TmString $1 }   
 
+   |LBRACKET tuplesTM RBRACKET
+     { TmTuple $2 }
+
+
 ty :
     atomicTy
       { $1 }
   | atomicTy ARROW ty
       { TyArr ($1, $3) }
+
 
 atomicTy :
     LPAREN ty RPAREN
@@ -102,4 +112,26 @@ atomicTy :
       { TyNat }
   | STRING
       { TyString }
+  | LBRACKET tuplesTY RBRACKET
+      { TyTuple $2 }
 
+
+
+tuplesTM:
+   | term { [$1] }
+   | term COMMA tuplesTM { $1::$3 }
+
+tuplesTY:
+  | ty { [$1] }
+  | ty COMMA tuplesTY { $1::$3 }   
+
+
+projTerm :
+   | projTerm DOT INTV
+      { TmProj ($1,(string_of_int $3))}
+      
+   | projTerm DOT STRINGV
+      { TmProj ($1,$3)}
+
+   | atomicTerm
+      { $1 } 

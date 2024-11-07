@@ -26,6 +26,9 @@ rule token = parse
   | "chao"      { QUIT } 
   | '('         { LPAREN }
   | ')'         { RPAREN }
+  | '{'         {LBRACKET}
+  | '}'         {RBRACKET}
+  | ','         {COMMA}
   | '.'         { DOT }
   | '='         { EQ }
   | ':'         { COLON }
