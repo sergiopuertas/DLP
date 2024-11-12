@@ -9,7 +9,7 @@ Assignment of Programming Languages Design (2024/2025)
 | HECHO  | definiciones globales      | CLASE   |         |
 | HECHO  | string                     | CLASE   |         |
 | HECHO  | tuplas                     | PUERTAS |         |
-| CASI   | registros                  | PUERTAS |         |
+| HECHO  | registros                  | PUERTAS |         |
 |        | suma                       |         |         |
 |        | variantes                  |         |         |
 |        | listas                     |         |         |
