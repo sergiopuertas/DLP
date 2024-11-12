@@ -8,8 +8,8 @@ Assignment of Programming Languages Design (2024/2025)
 | HECHO  | combinador fix             | CLASE   |         |
 | HECHO  | definiciones globales      | CLASE   |         |
 | HECHO  | string                     | CLASE   |         |
-|        | tuplas                     |         |         |
-|        | registros                  |         |         |
+| HECHO  | tuplas                     | PUERTAS |         |
+| CASI   | registros                  | PUERTAS |         |
 |        | suma                       |         |         |
 |        | variantes                  |         |         |
 |        | listas                     |         |         |

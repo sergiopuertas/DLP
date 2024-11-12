@@ -7,6 +7,7 @@ type ty =
   | TyArr of ty * ty
   | TyString
   | TyTuple of ty list
+  | TyRecord of (string * ty) list
 ;;
 
 type term =
@@ -26,6 +27,7 @@ type term =
   | TmConcat of term * term
   | TmTuple of term list
   | TmProj of term * string
+  | TmRecord of (string * term) list
 ;;
 
 type command = 
@@ -88,9 +90,17 @@ let rec string_of_ty ty =
       let rec f = function
           [] -> ""
         | (ty::[]) -> string_of_ty ty
-        | (ty::tail) -> string_of_ty ty ^ ", " ^ f tail
+        | (ty::t) -> string_of_ty ty ^ ", " ^ f t
       in
       "(" ^ f tys ^ ")"
+  | TyRecord tys ->
+    let rec f = function
+        [] -> ""
+      | (s, ty)::[] -> s ^ ": " ^ string_of_ty ty
+      | (s, ty)::t -> s ^ ": " ^ string_of_ty ty ^ ", " ^ f t
+    in
+    "{" ^ f tys ^ "}"
+
     
 and string_of_ty_prec ty prec = 
   match ty with
@@ -189,7 +199,12 @@ let rec typeof ctx tm = match tm with
         TyTuple tys -> 
               (try List.nth tys (int_of_string i - 1) with  
                   _ -> raise (Type_error ("cannot project element " ^ i ^ ", this index does not exist in the tuple")))
+        | TyRecord tys ->
+              (try List.assoc i tys with
+              _ -> raise (Type_error ("cannot project element " ^ i ^ ", this index does not exist in the record")))
         | _ -> raise (Type_error "projection of non-tuple type"))
+
+  | TmRecord tms -> TyRecord (List.map (fun (s, tm) -> (s, typeof ctx tm)) tms)
   ;;
 
 
@@ -256,6 +271,13 @@ and string_of_term_prec tm prec =
         | _ -> string_of_term_prec t 10 ^ "." ^ string_of_int n
       in proj_string t1 (int_of_string n)
 
+  | TmRecord tms -> 
+      let rec f = function
+            [] -> ""
+          | (s, tm)::[] -> s ^ ": " ^ string_of_term tm
+          | (s, tm)::t -> s ^ ": " ^ string_of_term tm ^ ", " ^ f t
+      in "{" ^ f tms ^ "}"
+
   ;;
 
 
@@ -301,6 +323,7 @@ let rec free_vars tm = match tm with
     lunion (free_vars t1) (free_vars t2)    
   | TmTuple tms -> List.flatten (List.map free_vars tms)
   | TmProj (t, n) -> free_vars t
+  | TmRecord tms -> List.flatten (List.map (fun (s, tm) -> free_vars tm) tms)
 ;;
 
 let rec fresh_name x l =
@@ -348,6 +371,8 @@ let rec subst x s tm = match tm with
   | TmTuple tms -> TmTuple (List.map (subst x s) tms)
 
   | TmProj (t, n) -> TmProj (subst x s t, n)
+  | TmRecord tms -> TmRecord (List.map (fun (label, tm) -> (label, subst x s tm)) tms)
+
 
 ;;
 
@@ -363,6 +388,7 @@ let rec isval tm = match tm with
   | TmAbs _ -> true
   | TmString _ -> true
   | TmTuple tms -> List.for_all isval tms
+  | TmRecord tms -> List.for_all (fun (_, tm) -> isval tm) tms
   | t when isnumericval t -> true
   | _ -> false
 ;;
@@ -462,7 +488,8 @@ let rec eval1 ctx tm = match tm with
 
   | TmVar s ->
       getvbinding ctx s
-
+    
+      (* E-Tuple *)
   | TmTuple tup ->
       let rec eval_tuple tup = match tup with
         | [] -> raise NoRuleApplies
@@ -470,17 +497,36 @@ let rec eval1 ctx tm = match tm with
         | tm::t -> (eval1 ctx tm)::t
       in TmTuple (eval_tuple tup)
 
-  (* E-ProjTuple *)
-    | TmProj (TmTuple tms, n) ->
+   (* E-Record *)
+  | TmRecord tms ->
+    let rec eval_record tms = match tms with
+      | [] -> raise NoRuleApplies
+      | (s, tm)::t when isval tm -> (s, tm)::(eval_record t)
+      | (s, tm)::t -> (s, eval1 ctx tm)::t
+    in TmRecord (eval_record tms)
+
+  
+    (* E-ProjTuple *)
+  | TmProj (TmTuple tms, n) ->
     let index = int_of_string n in
     if index > 0 && index <= List.length tms then List.nth tms (index - 1)
     else raise NoRuleApplies
 
-(* E-Proj *)
-  | TmProj (t, n) ->
-    let t' = eval1 ctx t in
-    TmProj (t', n)
+  (* E-ProjRecord1 *)
+  | TmProj (TmRecord tms, s) when isval (TmRecord tms) -> 
+    List.assoc s tms
 
+  (* E-ProjRecord2 *)
+  | TmProj(TmRecord tms, s) ->
+    (try List.assoc s tms with
+      _ -> raise NoRuleApplies)
+
+  (* E-Proj *)
+  | TmProj (t, n) ->
+    (match eval1 ctx t with
+      | TmTuple _ | TmRecord _ as t' -> TmProj (t', n)
+      | _ -> raise NoRuleApplies)
+  
   | _ ->
       raise NoRuleApplies
 ;;

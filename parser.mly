@@ -76,7 +76,7 @@ appTerm :
    | projTerm DOT INTV
       { TmProj ($1,(string_of_int $3))}
       
-   | projTerm DOT STRINGV
+   | projTerm DOT IDV
       { TmProj ($1,$3)}
 
    | atomicTerm
@@ -102,6 +102,17 @@ atomicTerm :
 
    |LBRACKET tuplesTM RBRACKET
      { TmTuple $2 }
+    |LBRACKET recordTM RBRACKET
+     {TmRecord $2}
+
+
+recordTM:
+    | {[]}
+    | nonEmptyRecordTM {$1}
+
+nonEmptyRecordTM:
+    | IDV EQ term {[$1,$3]}
+    | IDV EQ term COMMA nonEmptyRecordTM {($1,$3)::$5}
 
 tuplesTM:
    | term { [$1] }
@@ -126,7 +137,14 @@ atomicTy :
   | LBRACKET tuplesTY RBRACKET
       { TyTuple $2 }
 
+recordTY:
+  |        { [] }
+  | noemptyrecordTY { $1 }
 
+noemptyrecordTY:
+  | IDV COLON ty {[$1,$3]}
+  | IDV COLON ty COMMA noemptyrecordTY {($1,$3)::$5}
+  
 tuplesTY:
   | ty { [$1] }
   | ty COMMA tuplesTY { $1::$3 }   

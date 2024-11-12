@@ -73,6 +73,7 @@ in fib 6;;
 str = "Hello world" ;;
 
 concat str str ;;
+
     
 ----------- STRINGS ----------------------------
 
@@ -93,5 +94,11 @@ let t = {true, "hola", let x = 2 in x + 1} in t.3 ;;
 t= {false, "this is a String", 3};; 
 
 t.2;;
+
+----------- RECORDS-----------------------------
+
+persona = {nombre = "John", edad = 45, masculino = true} ;;
+
+persona.nombre;;
 
 
