@@ -19,5 +19,4 @@ let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y
 
 (* Fix = funciona bien chilling*)
 letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in sum 2 3
-
 letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in letrec prod : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero m then 0 else sum n (prod n (pred m)) in prod 12 5

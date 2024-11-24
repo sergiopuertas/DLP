@@ -34,6 +34,7 @@
 
 %token <int> INTV
 %token <string> IDV
+%token <string> IDTY
 %token <string> STRINGV
 
 %start s
@@ -43,6 +44,7 @@
 
 s :
     | IDV EQ term EOF { Bind ($1,$3)}
+    | IDTY EQ ty EOF { BindTy($1, $3)} 
     | term EOF { Eval $1 }
     | QUIT EOF { Quit }
 
@@ -136,6 +138,8 @@ atomicTy :
       { TyString }
   | LBRACKET tuplesTY RBRACKET
       { TyTuple $2 }
+  | IDTY
+      { TyVarTy $1 }    
 
 recordTY:
   |        { [] }

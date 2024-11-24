@@ -8,6 +8,7 @@ type ty =
   | TyString
   | TyTuple of ty list
   | TyRecord of (string * ty) list
+  | TyVarTy of string
 ;;
 
 type term =
@@ -33,6 +34,7 @@ type term =
 type command = 
     Eval of term
   | Bind of string * term
+  | BindTy of string * ty
   | Quit
 ;;
 
@@ -100,6 +102,7 @@ let rec string_of_ty ty =
       | (s, ty)::t -> s ^ ": " ^ string_of_ty ty ^ ", " ^ f t
     in
     "{" ^ f tys ^ "}"
+  | TyVarTy s -> s
 
     
 and string_of_ty_prec ty prec = 
@@ -111,6 +114,20 @@ and string_of_ty_prec ty prec =
 
 exception Type_error of string
 ;;
+
+let rec typeofTy ctx ty =
+  match ty with
+      TyBool ->
+        TyBool
+    | TyNat ->
+        TyNat
+    | TyString ->
+        TyString
+    | TyVarTy s ->
+          gettbinding ctx s
+    | _ -> raise (Type_error "type not supported")
+;;
+
 
 let rec typeof ctx tm = match tm with
     (* T-True *)
@@ -505,7 +522,6 @@ let rec eval1 ctx tm = match tm with
       | (s, tm)::t -> (s, eval1 ctx tm)::t
     in TmRecord (eval_record tms)
 
-  
     (* E-ProjTuple *)
   | TmProj (TmTuple tms, n) ->
     let index = int_of_string n in
@@ -557,6 +573,10 @@ let execute ctx = function
     let tm' = eval ctx tm in
     print_endline(s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
     addvbinding ctx s tyTm tm'
+  | BindTy (s, ty) ->
+    let ty' = typeofTy ctx ty in
+    print_endline("- : " ^ s ^ " : " ^ string_of_ty ty');
+    addtbinding ctx s ty'
 
   | Quit ->
       raise End_of_file
