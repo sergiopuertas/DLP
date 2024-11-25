@@ -9,6 +9,7 @@ type ty =
   | TyTuple of ty list
   | TyRecord of (string * ty) list
   | TyVarTy of string
+  | TyList of ty
 ;;
 
 type term =
@@ -29,6 +30,11 @@ type term =
   | TmTuple of term list
   | TmProj of term * string
   | TmRecord of (string * term) list
+  | TmNil of ty
+  | TmCons of ty * term * term
+  | TmIsNil of ty * term
+  | TmHead of ty * term
+  | TmTail of ty * term
 ;;
 
 type command = 
@@ -103,6 +109,9 @@ let rec string_of_ty ty =
     in
     "{" ^ f tys ^ "}"
   | TyVarTy s -> s
+  | TyList ty -> 
+    "[" ^ string_of_ty ty ^ "]"
+
 
     
 and string_of_ty_prec ty prec = 
@@ -222,6 +231,21 @@ let rec typeof ctx tm = match tm with
         | _ -> raise (Type_error "projection of non-tuple type"))
 
   | TmRecord tms -> TyRecord (List.map (fun (s, tm) -> (s, typeof ctx tm)) tms)
+  | TmNil ty -> TyList ty
+  | TmCons (ty, t1, t2) -> 
+      if typeof ctx t1 = ty then 
+        if typeof ctx t2 = TyList ty then TyList ty
+        else raise (Type_error "second argument of cons is not a list")
+      else raise (Type_error "first argument of cons does not match the type of the list")
+  | TmIsNil (ty, t) -> 
+      if typeof ctx t = TyList ty then TyBool
+      else raise (Type_error "argument of isnil is not a list")
+  | TmHead (ty, t) -> 
+      if typeof ctx t = TyList ty then ty
+      else raise (Type_error "argument of head is not a list")
+  | TmTail (ty, t) -> 
+      if typeof ctx t = TyList ty then TyList ty
+      else raise (Type_error "argument of tail is not a list")
   ;;
 
 
@@ -294,6 +318,11 @@ and string_of_term_prec tm prec =
           | (s, tm)::[] -> s ^ ": " ^ string_of_term tm
           | (s, tm)::t -> s ^ ": " ^ string_of_term tm ^ ", " ^ f t
       in "{" ^ f tms ^ "}"
+      | TmNil ty -> "nil [" ^ string_of_ty ty ^ "]"
+  | TmCons (ty, t1, t2) -> "cons[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t1 ^ " " ^ (string_of_term t2) ^ ")"
+  | TmIsNil (ty, t) -> "isnil [" ^ string_of_ty ty ^ "]" ^ "(" ^ string_of_term t ^ ")"
+  | TmHead (ty, t) -> "head[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t ^ ")"
+  | TmTail (ty, t) -> "tail[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t ^ ")"
 
   ;;
 
@@ -341,6 +370,11 @@ let rec free_vars tm = match tm with
   | TmTuple tms -> List.flatten (List.map free_vars tms)
   | TmProj (t, n) -> free_vars t
   | TmRecord tms -> List.flatten (List.map (fun (s, tm) -> free_vars tm) tms)
+  | TmNil ty -> []
+  | TmCons (ty, t1, t2) -> lunion (free_vars t1) (free_vars t2)
+  | TmIsNil (ty, t) -> free_vars t
+  | TmHead (ty, t) -> free_vars t
+  | TmTail (ty, t) -> free_vars t
 ;;
 
 let rec fresh_name x l =
@@ -389,7 +423,11 @@ let rec subst x s tm = match tm with
 
   | TmProj (t, n) -> TmProj (subst x s t, n)
   | TmRecord tms -> TmRecord (List.map (fun (label, tm) -> (label, subst x s tm)) tms)
-
+  | TmNil ty -> tm
+  | TmCons (ty, t1, t2) -> TmCons (ty, subst x s t1, subst x s t2)
+  | TmIsNil (ty, t) -> TmIsNil (ty, subst x s t)
+  | TmHead (ty, t) -> TmHead (ty, subst x s t)
+  | TmTail (ty, t) -> TmTail (ty, subst x s t)
 
 ;;
 
@@ -406,6 +444,8 @@ let rec isval tm = match tm with
   | TmString _ -> true
   | TmTuple tms -> List.for_all isval tms
   | TmRecord tms -> List.for_all (fun (_, tm) -> isval tm) tms
+  | TmNil _ -> true
+  | TmCons (_, t1, t2) -> isval t1 && isval t2
   | t when isnumericval t -> true
   | _ -> false
 ;;
@@ -543,6 +583,33 @@ let rec eval1 ctx tm = match tm with
       | TmTuple _ | TmRecord _ as t' -> TmProj (t', n)
       | _ -> raise NoRuleApplies)
   
+  (* E-Cons1 *)
+  | TmCons (ty, t1, t2) when isval t1 -> TmCons (ty, t1, eval1 ctx t2)
+
+  (* E-Cons2 *)
+  | TmCons (ty, t1, t2) -> TmCons (ty, eval1 ctx t1, t2)
+
+  (* E-IsNilNil *)
+  | TmIsNil (ty, TmNil (_)) -> TmTrue
+
+  (* E-IsNilCons *)
+  | TmIsNil (ty, TmCons (_, _, _)) -> TmFalse
+
+  (* E-IsNil *)
+  | TmIsNil (ty, t) -> TmIsNil (ty, eval1 ctx t)
+
+  (* E-HeadCons *)
+  | TmHead (ty, TmCons (_, t1, _)) -> t1
+
+  (* E-Head *)
+  | TmHead (ty, t) -> TmHead (ty, eval1 ctx t)
+
+  (* E-TailCons *)
+  | TmTail (ty, TmCons (_, _, t2)) -> t2
+
+  (* E-Tail *)
+  | TmTail (ty, t) -> TmTail (ty, eval1 ctx t)  
+
   | _ ->
       raise NoRuleApplies
 ;;

@@ -15,6 +15,11 @@
 %token LET
 %token LETREC
 %token IN
+%token NIL
+%token CONS
+%token ISNIL
+%token HEAD
+%token TAIL
 %token CONCAT
 %token BOOL
 %token NAT
@@ -25,6 +30,8 @@
 %token RPAREN
 %token LBRACKET
 %token RBRACKET 
+%token LCORCHETE
+%token RCORCHETE
 %token COMMA
 %token DOT
 %token EQ
@@ -70,7 +77,17 @@ appTerm :
   | ISZERO projTerm
       { TmIsZero $2 }
   | CONCAT projTerm projTerm
-      { TmConcat ($2, $3) }    
+      { TmConcat ($2, $3) }
+      | NIL LCORCHETE ty RCORCHETE projTerm
+      { TmNil $3 }
+  | CONS LCORCHETE ty RCORCHETE projTerm projTerm
+      { TmCons ($3, $5, $6) }
+  | ISNIL LCORCHETE ty RCORCHETE projTerm
+      { TmIsNil ($3, $5) }
+  | HEAD LCORCHETE ty RCORCHETE projTerm
+      { TmHead ($3, $5) }
+  | TAIL LCORCHETE ty RCORCHETE projTerm
+      { TmTail ($3, $5) }    
   | appTerm projTerm
       { TmApp ($1, $2) }
 
@@ -88,6 +105,8 @@ appTerm :
 atomicTerm :
     LPAREN term RPAREN
       { $2 }
+  | IDV EQ term
+      { $3 }
   | TRUE
       { TmTrue }
   | FALSE
@@ -102,9 +121,9 @@ atomicTerm :
   | STRINGV 
       { TmString $1 }   
 
-   |LBRACKET tuplesTM RBRACKET
+  | LBRACKET tuplesTM RBRACKET
      { TmTuple $2 }
-    |LBRACKET recordTM RBRACKET
+  | LBRACKET recordTM RBRACKET
      {TmRecord $2}
 
 
@@ -139,7 +158,9 @@ atomicTy :
   | LBRACKET tuplesTY RBRACKET
       { TyTuple $2 }
   | IDTY
-      { TyVarTy $1 }    
+      { TyVarTy $1 }
+  | LCORCHETE ty RCORCHETE
+      { TyList $2 } 
 
 recordTY:
   |        { [] }
@@ -152,6 +173,9 @@ noemptyrecordTY:
 tuplesTY:
   | ty { [$1] }
   | ty COMMA tuplesTY { $1::$3 }   
+
+
+
 
 
 

@@ -7,6 +7,7 @@ type ty =
   | TyTuple of ty list
   | TyRecord of (string * ty) list
   | TyVarTy of string
+  | TyList of ty
 ;;
 
 type term =
@@ -27,6 +28,11 @@ type term =
   | TmTuple of term list
   | TmProj of term * string
   | TmRecord of (string * term) list
+  | TmNil of ty
+  | TmCons of ty * term * term
+  | TmIsNil of ty * term
+  | TmHead of ty * term
+  | TmTail of ty * term
 
 ;;
 
