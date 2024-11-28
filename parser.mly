@@ -78,16 +78,6 @@ appTerm :
       { TmIsZero $2 }
   | CONCAT projTerm projTerm
       { TmConcat ($2, $3) }
-      | NIL LCORCHETE ty RCORCHETE projTerm
-      { TmNil $3 }
-  | CONS LCORCHETE ty RCORCHETE projTerm projTerm
-      { TmCons ($3, $5, $6) }
-  | ISNIL LCORCHETE ty RCORCHETE projTerm
-      { TmIsNil ($3, $5) }
-  | HEAD LCORCHETE ty RCORCHETE projTerm
-      { TmHead ($3, $5) }
-  | TAIL LCORCHETE ty RCORCHETE projTerm
-      { TmTail ($3, $5) }    
   | appTerm projTerm
       { TmApp ($1, $2) }
 
@@ -125,6 +115,16 @@ atomicTerm :
      { TmTuple $2 }
   | LBRACKET recordTM RBRACKET
      {TmRecord $2}
+  | NIL LCORCHETE ty RCORCHETE
+      { TmNil $3 }
+  | CONS LCORCHETE ty RCORCHETE atomicTerm atomicTerm
+      { TmCons ($3, $5, $6) }
+  | ISNIL LCORCHETE ty RCORCHETE atomicTerm
+      { TmIsNil ($3, $5) }
+  | HEAD LCORCHETE ty RCORCHETE atomicTerm
+      { TmHead ($3, $5) }
+  | TAIL LCORCHETE ty RCORCHETE atomicTerm
+      { TmTail ($3, $5) }
 
 
 recordTM:

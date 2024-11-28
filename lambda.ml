@@ -110,7 +110,7 @@ let rec string_of_ty ty =
     "{" ^ f tys ^ "}"
   | TyVarTy s -> s
   | TyList ty -> 
-    "[" ^ string_of_ty ty ^ "]"
+    "List [" ^ string_of_ty ty ^ "]"
 
 
     
@@ -251,15 +251,17 @@ let rec typeof ctx tm = match tm with
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
-let rec string_of_term tm = string_of_term_prec tm 0
+let rec string_of_term tm = string_of_term_prec tm 0 0
 
-and string_of_term_prec tm prec =
+and string_of_term_prec tm prec indent =
+  let indent_str n = String.make (n * 2) ' ' in
   match tm with
   | TmTrue -> "true"
   | TmFalse -> "false"
   | TmIf (t1, t2, t3) ->
-      let s = "if " ^ string_of_term_prec t1 0 ^ " then " ^
-              string_of_term_prec t2 0 ^ " else " ^ string_of_term_prec t3 0 in
+      let s = "if " ^ string_of_term_prec t1 0 (indent + 1) ^ " then " ^
+              string_of_term_prec t2 0 (indent + 1) ^"\n" ^ indent_str (indent - 1) ^ " else " ^
+              string_of_term_prec t3 0 (indent + 1) in
       if prec > 0 then "(" ^ s ^ ")" else s
 
   | TmZero -> "0"
@@ -268,62 +270,61 @@ and string_of_term_prec tm prec =
         match t' with
         | TmZero -> string_of_int n
         | TmSucc s -> f (n + 1) s
-        | _ -> "succ (" ^ string_of_term_prec t 10 ^ ")"
+        | _ -> "succ (" ^ string_of_term_prec t 10 (indent + 1) ^ ")"
       in
       f 1 t
 
-  | TmPred t -> "pred " ^ string_of_term_prec t 10
-  | TmIsZero t -> "iszero " ^ string_of_term_prec t 10
+  | TmPred t -> "pred " ^ string_of_term_prec t 10 (indent + 1)
+  | TmIsZero t -> "iszero " ^ string_of_term_prec t 10 (indent + 1)
 
   | TmVar s -> s
 
   | TmAbs (s, tyS, t) ->
-      let s = "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term_prec t 0 in
+      let s = "lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ".\n" ^ indent_str (indent + 1 ) ^ string_of_term_prec t 0 (indent + 2) in
       if prec > 0 then "(" ^ s ^ ")" else s
 
   | TmApp (t1, t2) ->
-      let s = string_of_term_prec t1 10 ^ " " ^ string_of_term_prec t2 11 in
+      let s = string_of_term_prec t1 10 (indent + 1) ^ " " ^ string_of_term_prec t2 11 (indent + 1) in
       if prec > 10 then "(" ^ s ^ ")" else s
 
   | TmLetIn (s, t1, t2) ->
-      let s = "let " ^ s ^ " = " ^ string_of_term_prec t1 0 ^ " in " ^ string_of_term_prec t2 0 in
+      let s = "let " ^ s ^ " = " ^ string_of_term_prec t1 0 (indent + 1) ^ " in\n" ^ indent_str (indent + 1) ^ string_of_term_prec t2 0 (indent + 1) in
       if prec > 0 then "(" ^ s ^ ")" else s
 
-  | TmFix t -> "fix " ^ string_of_term_prec t 10
+  | TmFix t -> "fix " ^ string_of_term_prec t 10 (indent + 1)
   | TmString str -> "\"" ^ str ^ "\""
   | TmConcat (t1, t2) ->
-      let s = "concat " ^ string_of_term_prec t1 10 ^ " " ^ string_of_term_prec t2 10 in
+      let s = "concat " ^ string_of_term_prec t1 10 (indent + 1) ^ " " ^ string_of_term_prec t2 10 (indent + 1) in
       if prec > 10 then "(" ^ s ^ ")" else s
 
   | TmTuple tms ->
     let rec f tms' =
       match tms' with
           [] -> ""
-        | (tm::[]) -> string_of_term tm
-        | (tm::t) -> string_of_term tm ^ ", " ^ f t
+        | (tm::[]) -> string_of_term_prec tm 0 (indent + 1)
+        | (tm::t) -> string_of_term_prec tm 0 (indent + 1) ^ ", " ^ f t
     in "{" ^ f tms ^ "}"
 
   | TmProj (t1, n) ->
       let rec proj_string t n =
         match t with
         | TmTuple tms ->
-            if n > 0 && n <= List.length tms then string_of_term_prec (List.nth tms (n - 1)) 0
+            if n > 0 && n <= List.length tms then string_of_term_prec (List.nth tms (n - 1)) 0 (indent + 1)
             else raise (Failure "tuple index out of bounds")
-        | _ -> string_of_term_prec t 10 ^ "." ^ string_of_int n
+        | _ -> string_of_term_prec t 10 (indent + 1) ^ "." ^ string_of_int n
       in proj_string t1 (int_of_string n)
 
   | TmRecord tms -> 
       let rec f = function
             [] -> ""
-          | (s, tm)::[] -> s ^ ": " ^ string_of_term tm
-          | (s, tm)::t -> s ^ ": " ^ string_of_term tm ^ ", " ^ f t
+          | (s, tm)::[] -> s ^ ": " ^ string_of_term_prec tm 0 (indent + 1)
+          | (s, tm)::t -> s ^ ": " ^ string_of_term_prec tm 0 (indent + 1) ^ ", " ^ f t
       in "{" ^ f tms ^ "}"
-      | TmNil ty -> "nil [" ^ string_of_ty ty ^ "]"
-  | TmCons (ty, t1, t2) -> "cons[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t1 ^ " " ^ (string_of_term t2) ^ ")"
-  | TmIsNil (ty, t) -> "isnil [" ^ string_of_ty ty ^ "]" ^ "(" ^ string_of_term t ^ ")"
-  | TmHead (ty, t) -> "head[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t ^ ")"
-  | TmTail (ty, t) -> "tail[" ^string_of_ty ty ^ "] " ^ "(" ^ string_of_term t ^ ")"
-
+  | TmNil ty -> "nil [" ^ string_of_ty ty ^ "]"
+  | TmCons (ty, t1, t2) -> "cons[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t1 0 (indent + 1) ^ " " ^ string_of_term_prec t2 0 (indent + 1) ^ ")"
+  | TmIsNil (ty, t) -> "isnil [" ^ string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
+  | TmHead (ty, t) -> "head[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
+  | TmTail (ty, t) -> "tail[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
   ;;
 
 
