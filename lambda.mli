@@ -8,6 +8,7 @@ type ty =
   | TyRecord of (string * ty) list
   | TyVarTy of string
   | TyList of ty
+  | TyVariant of (string * ty) list
 ;;
 
 type term =
@@ -33,6 +34,8 @@ type term =
   | TmIsNil of ty * term
   | TmHead of ty * term
   | TmTail of ty * term
+  | TmCase of term * (string * string * term) list 
+  | TmTag of string * term * ty
 
 ;;
 

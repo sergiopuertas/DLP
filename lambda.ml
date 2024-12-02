@@ -10,6 +10,8 @@ type ty =
   | TyRecord of (string * ty) list
   | TyVarTy of string
   | TyList of ty
+  | TyVariant of (string * ty) list
+
 ;;
 
 type term =
@@ -35,7 +37,20 @@ type term =
   | TmIsNil of ty * term
   | TmHead of ty * term
   | TmTail of ty * term
+  | TmTag of string * term * ty
+  | TmCase of term * (string * string * term) list
 ;;
+
+let rec base_ty ctx = function
+    TyBool -> TyBool
+  | TyNat -> TyNat
+  | TyString -> TyString
+  | TyArr (t1,t2) -> TyArr (base_ty ctx t1, base_ty ctx t2)
+  | TyTuple tms -> TyTuple (List.map (base_ty ctx) tms)
+  | TyRecord tms -> TyRecord (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tms)
+  | TyVariant tms -> TyVariant (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tms)
+  | TyList ty -> TyList (base_ty ctx ty)
+  | TyVarTy s -> TyVarTy s
 
 type command = 
     Eval of term
@@ -111,6 +126,14 @@ let rec string_of_ty ty =
   | TyVarTy s -> s
   | TyList ty -> 
     "List [" ^ string_of_ty ty ^ "]"
+  
+    | TyVariant tys -> 
+      let rec f = function
+          [] -> ""
+        | (s, ty)::[] -> s ^ ": " ^ string_of_ty ty
+        | (s, ty)::t -> s ^ ": " ^ string_of_ty ty ^ ", " ^ f t
+      in
+      "<" ^ f tys ^ ">"
 
 
     
@@ -134,6 +157,8 @@ let rec typeofTy ctx ty =
         TyString
     | TyVarTy s ->
           gettbinding ctx s
+    | TyVariant l -> 
+            TyVariant (List.map (fun (s, ty) -> (s, typeofTy ctx ty)) l)
     | _ -> raise (Type_error "type not supported")
 ;;
 
@@ -246,7 +271,44 @@ let rec typeof ctx tm = match tm with
   | TmTail (ty, t) -> 
       if typeof ctx t = TyList ty then TyList ty
       else raise (Type_error "argument of tail is not a list")
-  ;;
+  
+  | TmTag(s,t,ty) ->
+        let tyT1 = base_ty ctx (typeof ctx t) in
+        let tyT2 = base_ty ctx ty in
+        match tyT2 with
+        | TyVariant l -> 
+          (try 
+            if tyT1 = List.assoc s l then tyT2
+            else raise (Type_error "field does not match the type of the variant")
+          with
+            Not_found -> raise (Type_error "case " ^ s ^ "not present in the variant"))
+        | _ -> raise (Type_error "variant type expected")
+        
+  | TmCase(t,cases) ->
+        let tyT1 = base_ty ctx (typeof ctx t) in
+        (match tyT1 with
+            TyVariant l -> 
+              let vtags = List.map (fun (tag,_) -> tag) l in
+              let ctags = List.map (fun (tag,_,_) -> tag) cases in
+              if List.length vtags = List.length ctags && List.for_all (function tag -> List.mem tag vtags) ctags 
+                then
+                let (tag1, id1, tm1) = List.hd cases in
+                let ty1 = List.assoc tag1 l in
+                let ctx1 = addtbinding ctx id1 ty1 in
+                let rty =  typeof ctx1 tm1 in
+                let rec aux = function
+                  [] -> rty
+                  | (tagi, idi, tmi)::rest -> 
+                    let tyi = List.assoc tagi l in
+                    let ctxi = addtbinding ctx idi tyi in
+                    let rtyi =  typeof ctxi tmi in
+                    if rtyi = rty then aux rest
+                    else raise (Type_error "case branches have different types")
+                  in aux (cases)
+                else raise (Type_error "case branches do not match the variant")
+            | _ -> raise (Type_error "variant type expected"))
+
+;;
 
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -325,6 +387,14 @@ and string_of_term_prec tm prec indent =
   | TmIsNil (ty, t) -> "isnil [" ^ string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
   | TmHead (ty, t) -> "head[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
   | TmTail (ty, t) -> "tail[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
+  | TmTag (s, t, ty) -> "<" ^ s ^ " = " ^ string_of_term_prec t 0 (indent + 1) ^ "> as " ^ string_of_ty ctx ty 
+  | TmCase (t, cases) -> 
+      let rec f = function
+          [] -> ""
+        | (s, id, tm)::[] -> s ^ " " ^ id ^ " => " ^ string_of_term_prec tm 0 (indent + 1)
+        | (s, id, tm)::t -> s ^ " " ^ id ^ " => " ^ string_of_term_prec tm 0 (indent + 1) ^ " | " ^ f t
+      in "case " ^ string_of_term_prec t 0 (indent + 1) ^ " of " ^ f cases
+
   ;;
 
 
@@ -376,6 +446,9 @@ let rec free_vars tm = match tm with
   | TmIsNil (ty, t) -> free_vars t
   | TmHead (ty, t) -> free_vars t
   | TmTail (ty, t) -> free_vars t
+  | TmTag (_, t, _) -> free_vars t
+  | TmCase (t,cases)-> lunion (free_vars t) (List.fold_left (fun fvar (label,id,tm) -> lunion (ldif(free_vars tm) [id]) fvar) [] cases)
+
 ;;
 
 let rec fresh_name x l =
@@ -429,6 +502,10 @@ let rec subst x s tm = match tm with
   | TmIsNil (ty, t) -> TmIsNil (ty, subst x s t)
   | TmHead (ty, t) -> TmHead (ty, subst x s t)
   | TmTail (ty, t) -> TmTail (ty, subst x s t)
+  | TmTag (label, tm, ty) -> TmTag (label, subst x s tm, ty)
+  | TmCase(t,cases) -> TmCase (subst x s tm, 
+      List.map (fun (label, id, tm) -> 
+      if id = x then (label, id, tm) else (lb, id, subst x s tm) ) cases)
 
 ;;
 
@@ -610,6 +687,17 @@ let rec eval1 ctx tm = match tm with
 
   (* E-Tail *)
   | TmTail (ty, t) -> TmTail (ty, eval1 ctx t)  
+  (*E-Case*)
+  | TmCase (t, ty) ->
+    TmCase (eval1 ctx t, ty)
+  (*E-Tag*)
+  | TmTag (s, t, ty) ->
+      TmTag (s, eval1 ctx t, ty)
+  (*E-CaseVariant*)
+  | TmCase (TmTag (s, v, _), cases)
+      when isval v ->
+        let (_,id,tm) = List.find (fun (tag,_,_) -> tag = s) cases in
+        subst id v tm
 
   | _ ->
       raise NoRuleApplies

@@ -26,6 +26,7 @@
 %token STRING
 %token QUIT
 
+
 %token LPAREN
 %token RPAREN
 %token LBRACKET
@@ -38,6 +39,13 @@
 %token COLON
 %token ARROW
 %token EOF
+%token LTRIANG
+%token RTRIANG
+%token CASE
+%token AS
+%token OF
+%token VBAR
+%token VARROW
 
 %token <int> INTV
 %token <string> IDV
@@ -66,6 +74,9 @@ term :
       { TmLetIn ($2, $4, $6) }
   | LETREC IDV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
+  | LTRIANG IDV EQ term RTRIANG AS ty {TmTag ($2,$4,$7)}
+  | CASE term OF cases
+        { TmCase ($2, $4) }
 
 appTerm :
     projTerm
@@ -80,6 +91,7 @@ appTerm :
       { TmConcat ($2, $3) }
   | appTerm projTerm
       { TmApp ($1, $2) }
+  
 
  projTerm :
    | projTerm DOT INTV
@@ -125,6 +137,7 @@ atomicTerm :
       { TmHead ($3, $5) }
   | TAIL LCORCHETE ty RCORCHETE atomicTerm
       { TmTail ($3, $5) }
+    
 
 
 recordTM:
@@ -157,10 +170,14 @@ atomicTy :
       { TyString }
   | LBRACKET tuplesTY RBRACKET
       { TyTuple $2 }
+  | LBRACKET recordTY RBRACKET
+      { TyRecord $2 }
   | IDTY
       { TyVarTy $1 }
   | LCORCHETE ty RCORCHETE
       { TyList $2 } 
+  | LTRIANG noemptyrecordTY RTRIANG
+      { TyVariant $2 }
 
 recordTY:
   |        { [] }
@@ -174,8 +191,13 @@ tuplesTY:
   | ty { [$1] }
   | ty COMMA tuplesTY { $1::$3 }   
 
-
-
-
-
+cases:
+    | case
+        { [$1] }
+    | case VBAR cases
+        { $1::$3 }
+    
+case:
+    | LTRIANG IDV EQ IDV RTRIANG VARROW appterm
+        { ($2,$4, $7) }
 
