@@ -10,12 +10,11 @@ rule token = parse
   | "true"      { TRUE }
   | "false"     { FALSE }
   | "if"        { IF }
-
   | "then"      { THEN }
   | "else"      { ELSE }
-  | "as" {AS}
-  | "of" {OF}
-  | "case" {CASE}
+  | "as"        {AS}
+  | "of"        {OF}
+  | "case"      {CASE}
   | "succ"      { SUCC }
   | "pred"      { PRED }
   | "iszero"    { ISZERO }
@@ -38,10 +37,10 @@ rule token = parse
   | '}'         {RBRACKET}
   | '['         {LCORCHETE}
   | ']'         {RCORCHETE}
-  | "<" {LTRIANG}
-  | ">" {RTRIANG}
-  | '|' {VBAR}
-  | "=>" {VARROW}
+  | "<"         {LTRIANG}
+  | ">"         {RTRIANG}
+  | '|'         {VBAR}
+  | "=>"        {VARROW}
   | ','         {COMMA}
   | '.'         { DOT }
   | '='         { EQ }

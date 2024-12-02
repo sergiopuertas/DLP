@@ -78,6 +78,7 @@ term :
   | CASE term OF cases
         { TmCase ($2, $4) }
 
+
 appTerm :
     projTerm
       { $1 }
@@ -93,7 +94,7 @@ appTerm :
       { TmApp ($1, $2) }
   
 
- projTerm :
+projTerm :
    | projTerm DOT INTV
       { TmProj ($1,(string_of_int $3))}
       
@@ -198,6 +199,6 @@ cases:
         { $1::$3 }
     
 case:
-    | LTRIANG IDV EQ IDV RTRIANG VARROW appterm
+    | LTRIANG IDV EQ IDV RTRIANG VARROW appTerm
         { ($2,$4, $7) }
 
