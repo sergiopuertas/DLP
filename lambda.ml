@@ -259,18 +259,22 @@ let rec typeof ctx tm = match tm with
   | TmRecord tms -> TyRecord (List.map (fun (s, tm) -> (s, typeof ctx tm)) tms)
   | TmNil ty -> TyList ty
   | TmCons (ty, t1, t2) -> 
-      if typeof ctx t1 = ty then 
-        if typeof ctx t2 = TyList ty then TyList ty
+    let tyb = base_ty ctx ty in
+      if typeof ctx t1 = tyb then 
+        if typeof ctx t2 = TyList tyb then TyList tyb
         else raise (Type_error "second argument of cons is not a list")
       else raise (Type_error "first argument of cons does not match the type of the list")
   | TmIsNil (ty, t) -> 
-      if typeof ctx t = TyList ty then TyBool
+    let tyb = base_ty ctx ty in
+      if typeof ctx t = TyList tyb then TyBool
       else raise (Type_error "argument of isnil is not a list")
-  | TmHead (ty, t) -> 
-      if typeof ctx t = TyList ty then ty
+  | TmHead (ty, t) ->
+    let tyb = base_ty ctx ty in
+      if typeof ctx t = TyList tyb then tyb
       else raise (Type_error "argument of head is not a list")
   | TmTail (ty, t) -> 
-      if typeof ctx t = TyList ty then TyList ty
+    let tyb = base_ty ctx ty in
+      if typeof ctx t = TyList tyb then TyList tyb
       else raise (Type_error "argument of tail is not a list")
   
   | TmTag(s,t,ty) ->
@@ -310,7 +314,6 @@ let rec typeof ctx tm = match tm with
             | _ -> raise (Type_error "variant type expected")
 
 ;;
-
 
 (* TERMS MANAGEMENT (EVALUATION) *)
 
@@ -693,7 +696,7 @@ let rec eval1 ctx tm = match tm with
     (*E-CaseVariant*)
   | TmCase (TmTag (s, v, _), cases)
       when isval v ->
-        let (_,id,tm) = List.find (fun (_,tag,_) -> tag = s) cases in subst id v tm
+        let (_,id,tm) = List.find (fun (tag,_,_) -> tag = s) cases in subst id v tm
   
   (*E-Case*)
   | TmCase (t, cases) ->
