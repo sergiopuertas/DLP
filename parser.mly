@@ -24,6 +24,8 @@
 %token BOOL
 %token NAT
 %token STRING
+%token LIST
+
 %token QUIT
 
 
@@ -175,8 +177,8 @@ atomicTy :
       { TyRecord $2 }
   | IDTY
       { TyVarTy $1 }
-  | LCORCHETE ty RCORCHETE
-      { TyList $2 } 
+  | LIST LCORCHETE ty RCORCHETE
+      { TyList $3 } 
   | LTRIANG noemptyrecordTY RTRIANG
       { TyVariant $2 }
 

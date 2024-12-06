@@ -1,22 +1,165 @@
-true
-let x = true in x
-if false then true else false
-0
-succ (succ (succ 0))
-3
-succ (pred 0)
-iszero (pred (succ (succ 0)))
-if iszero 3 then 0 else 1
-iszero true
-if 1 then true else false
-if iszero 3 then 0 else false
-let id = Lx.x in id 3
-let id_bool = L x:Bool. x in id_bool true
-let id_nat = L x:Nat. x in id_nat 5
-let x = 5 in let id_nat = L x:Nat. x in id_nat x
-let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in let sum = fix sumaux in sum 21 34
-let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in let sum = fix sumaux in let prodaux = lambda f. (lambda n. (lambda m. if (iszero m) then 0 else sum n (f n (pred m)))) in let prod = fix prodaux in prod 12 5
+----------- MULTI-LINE EXPRESSIONS -------------
 
-(* Fix = funciona bien chilling*)
-letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in sum 2 3
-letrec sum : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in letrec prod : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. if iszero m then 0 else sum n (prod n (pred m)) in prod 12 5
+input = "Long live
+   rock'n roll 
+    - Rainbow";;
+
+
+----------- FIXED POINT COMBINER ---------------
+
+PRODUCT:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+        
+        letrec prod : Nat -> Nat -> Nat =
+        lambda n : Nat. lambda m : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        sum (prod (pred n) m) m 
+in prod 2 3;;
+
+FACTORIAL:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+
+        letrec prod : Nat -> Nat -> Nat =
+        lambda n : Nat. lambda m : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        sum (prod (pred n) m) m in
+                
+                letrec fac: Nat -> Nat =
+                lambda n : Nat. 
+                        if iszero n then 
+                                1 
+                        else 
+                                prod n (fac (pred n))
+in fac 3;;
+
+FIBONACCI:
+
+letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+
+        letrec fib: Nat -> Nat =
+        lambda n : Nat. 
+                if iszero n then 
+                        0 
+                else 
+                        if iszero (pred n) then 
+                                1 
+                        else 
+                                sum(fib (pred (pred n))) (fib (pred n)) 
+in fib 6;; 
+
+----------- GLOBAL DEFINITION CONTEXT ----------
+
+str = "Hello world" ;;
+
+concat str str ;;
+
+    
+----------- STRINGS ----------------------------
+
+"This is a string" ;;
+
+a= "May the 4th" ;;
+
+concat a " be with you" ;;
+
+
+
+----------- TUPLES-----------------------------
+
+tuple= {“nano”, 33, false};;
+
+tuple.2;;
+
+
+----------- RECORDS-----------------------------
+
+driver = {name = "Fernando", victories = 32, active = true} ;;
+
+driver.name;;
+
+----------- APPEND------------------------------
+
+append = 
+        letrec append: List[Nat] -> List[Nat] -> List[Nat] =
+        lambda l1: List[Nat]. lambda l2: List[Nat].
+                if isnil[Nat] l1 then 
+                        l2
+                else 
+                        cons[Nat] (head[Nat] l1) (append (tail[Nat] l1) l2) 
+in append;;
+
+----------- LEN---------------------------------
+len=
+        letrec len : (List[Nat]) -> Nat = lambda l : List[Nat]. if (isnil[Nat] l) then 0 else (succ (len (tail[Nat] l)))
+in len;;
+
+----------- MAP---------------------------------
+map =
+        letrec map : List[Nat] -> (Nat -> Nat) -> List[Nat] =
+        lambda l: List[Nat]. lambda f: (Nat -> Nat). 
+                if (isnil[Nat] (tail[Nat] l)) then
+                        cons[Nat] (f (head[Nat] l)) (nil[Nat])
+                else
+                        cons[Nat] (f (head[Nat] l)) (map (tail[Nat] l) f)
+in map;;
+
+----------- ADD---------------------------------
+Int = <pos:Nat, zero:Bool, neg:Nat>;;
+
+sum = letrec sum : Nat -> Nat -> Nat =                                      
+lambda n : Nat. lambda m : Nat. 
+        if iszero n then 
+                m 
+        else 
+                succ (sum (pred n) m) in
+sum;;
+
+add =
+  letrec add: Int -> Int -> Int =
+    lambda i1 : Int. lambda i2 : Int.
+      case i1 of
+        <zero=z1> => i1
+      | <pos=p1> =>
+          (case i2 of
+             <zero=z2> => i1
+	   | <pos=p2> => (<pos=sum p1 p2> as Int)
+	   | <neg=n2> =>
+	       (if iszero p1 then
+		  if iszero n2 then
+		    <zero=true> as Int
+		  else 
+		    <neg=n2> as Int
+		else 
+		  if iszero n2 then
+		    <pos=p1> as Int
+		  else 
+		    add (<pos=pred p1> as Int) (<neg=pred n2> as Int)))
+      | <neg=n1> =>
+	   (case i2 of
+	      <zero=z2> => i1
+	    | <pos=p2> => add i2 i1
+	    | <neg=n2> => (<neg=sum n1 n2> as Int))
+  in add
+  ;;
+

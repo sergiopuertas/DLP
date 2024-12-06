@@ -27,6 +27,7 @@ rule token = parse
   | "head"      { HEAD }
   | "tail"      { TAIL }
   | "concat"    { CONCAT }
+  | "List"       { LIST }
   | "Bool"      { BOOL }
   | "Nat"       { NAT }
   | "String"    { STRING }

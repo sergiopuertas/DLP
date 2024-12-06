@@ -163,6 +163,20 @@ let rec typeofTy ctx ty =
 ;;
 
 
+let rec subtypeof t1 t2 = match (t1, t2) with
+  | (TyArr(x1, x2), TyArr(y1, y2)) -> ((subtypeof x1 y1) && (subtypeof y2 x2))
+  | (TyRecord(r1), TyRecord(r2)) ->
+    let check (j, ty) l =
+      try 
+        subtypeof ty (List.assoc j l)
+    with _ -> false
+    in let rec contains r1 r2 = match r1 with
+      | [] -> true
+      | (h::t) -> (&&) (check h r2) (contains t r2)
+      in contains r1 r2
+  | (t1, t2) -> t1 = t2
+;;
+
 let rec typeof ctx tm = match tm with
     (* T-True *)
     TmTrue ->
@@ -218,7 +232,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
            TyArr (tyT11, tyT12) ->
-             if tyT2 = tyT11 then tyT12
+             if subtypeof tyT2 tyT11 then tyT12
              else raise (Type_error "parameter type mismatch")
          | _ -> raise (Type_error "arrow type expected"))
 
@@ -233,7 +247,7 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
            TyArr (tyT11, tyT12) ->
-             if tyT11 = tyT12 then tyT12
+            if subtypeof tyT11 tyT12 then tyT12
              else raise (Type_error "result of body not compatible with domain")
          | _ -> raise (Type_error "arrow type expected"))
     (* new rule for string *)     
@@ -469,7 +483,7 @@ let rec subst x s tm = match tm with
   | TmSucc t ->
       TmSucc (subst x s t)
   | TmPred t ->
-      TmPred (subst x s t)
+      TmPred (subst x s t) 
   | TmIsZero t ->
       TmIsZero (subst x s t)
   | TmVar y ->
@@ -506,8 +520,8 @@ let rec subst x s tm = match tm with
   | TmTail (ty, t) -> TmTail (ty, subst x s t)
   | TmTag (label, tm, ty) -> TmTag (label, subst x s tm, ty)
   | TmCase(t,cases) -> TmCase (subst x s t, 
-      List.map (fun (label, id, t) -> 
-      if id = x then (label, id, t) else (label, id, subst x s t)) cases)
+      List.map (fun (label, id, t1) -> 
+      if id = x then (label, id, t1) else (label, id, subst x s t1)) cases)
 
 ;;
 
@@ -689,9 +703,7 @@ let rec eval1 ctx tm = match tm with
 
   (* E-Tail *)
   | TmTail (ty, t) -> TmTail (ty, eval1 ctx t)  
-  (*E-Tag*)
-  | TmTag (s, t, ty) ->
-    TmTag (s, eval1 ctx t, ty)
+  
 
     (*E-CaseVariant*)
   | TmCase (TmTag (s, v, _), cases)
@@ -700,7 +712,11 @@ let rec eval1 ctx tm = match tm with
   
   (*E-Case*)
   | TmCase (t, cases) ->
-    TmCase (eval1 ctx t, cases)
+    let t1' = eval1 ctx t in
+    TmCase (t1', cases)
+  (*E-Tag*)
+  | TmTag (s, t, ty) ->
+    TmTag (s, eval1 ctx t, ty)
 
 
   | _ ->
