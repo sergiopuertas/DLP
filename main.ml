@@ -1,3 +1,7 @@
+(*
+  Authors: Lucas Grandal Lama, Sergio Puertas Pérez.
+*)
+
 open Parsing;;
 open Lexing;;
 

@@ -98,6 +98,19 @@ driver = {name = "Fernando", victories = 32, active = true} ;;
 
 driver.name;;
 
+----------- LISTS -----------------------------
+
+nil[Nat];;
+
+list = cons[Nat] 1 (cons[Nat] 2 (cons[Nat] 3(nil[Nat] 4)));;
+
+head[Nat] list;;
+
+tail[Nat] list;; 
+
+isnil[Nat] list;;
+
+
 ----------- APPEND------------------------------
 
 append = 
@@ -126,6 +139,10 @@ in map;;
 
 ----------- ADD---------------------------------
 Int = <pos:Nat, zero:Bool, neg:Nat>;;
+
+p3 = <pos = 3> as Int;;
+p5 = <pos = 5> as Int;;
+
 
 sum = letrec sum : Nat -> Nat -> Nat =                                      
 lambda n : Nat. lambda m : Nat. 
@@ -160,6 +177,31 @@ add =
 	      <zero=z2> => i1
 	    | <pos=p2> => add i2 i1
 	    | <neg=n2> => (<neg=sum n1 n2> as Int))
-  in add
+  in add p3 p5
   ;;
 
+----------- SUBTIPADO ---------------------------------
+
+(lambda r : {x : Nat}. r.x) {x= 0, y= 1};;
+
+(L f:{x:String, y:Bool} -> {x:String, y:Bool}. f {x = "hola", y = false}) (L x: {x:String, y:Bool}. {x = x.x, y = x.y});;
+
+
+f1 = lambda r : {x : Nat}. r.x ;;
+
+f2 = lambda r : {x : Nat, y:Bool}. r.x ;;
+
+g = lambda f: {x:Nat, y:Bool} -> Nat. (lambda r: {x:Nat, y:Bool}. f r);;
+
+g f1 {x= 3, y = true};;
+g f2 {x= 3, y= true};;
+
+
+
+
+
+abs = L i : Int.
+case i of
+<pos=p> => (<pos=p> as Int)
+| <zero=z> => (<zero=true> as Int)
+| <neg=n> => (<pos=n> as Int);;

@@ -232,7 +232,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
            TyArr (tyT11, tyT12) ->
-             if subtypeof tyT2 tyT11 then tyT12
+             if subtypeof tyT11 tyT2 then tyT12
              else raise (Type_error "parameter type mismatch")
          | _ -> raise (Type_error "arrow type expected"))
 
@@ -386,13 +386,20 @@ and string_of_term_prec tm prec indent =
     in "{" ^ f tms ^ "}"
 
   | TmProj (t1, n) ->
-      let rec proj_string t n =
-        match t with
-        | TmTuple tms ->
-            if n > 0 && n <= List.length tms then string_of_term_prec (List.nth tms (n - 1)) 0 (indent + 1)
-            else raise (Failure "tuple index out of bounds")
-        | _ -> string_of_term_prec t 10 (indent + 1) ^ "." ^ string_of_int n
-      in proj_string t1 (int_of_string n)
+    let rec proj_string t n =
+      match t with
+      | TmTuple tms ->
+      (try 
+        let index = int_of_string n in
+        if index > 0 && index <= List.length tms then string_of_term_prec (List.nth tms (index - 1)) 0 (indent + 1)
+        else raise (Failure "tuple index out of bounds")
+      with Failure _ -> raise (Type_error ("invalid projection index: " ^ n)))
+      | TmRecord tms ->
+      (try string_of_term_prec (List.assoc n tms) 0 (indent + 1)
+      with Not_found -> raise (Type_error ("record field not found: " ^ n)))
+      | _ -> string_of_term_prec t 10 (indent + 1) ^ "." ^ n
+    in 
+    proj_string t1 n
 
   | TmRecord tms -> 
       let rec f = function
@@ -407,12 +414,11 @@ and string_of_term_prec tm prec indent =
   | TmTail (ty, t) -> "tail[" ^string_of_ty ty ^ "] (" ^ string_of_term_prec t 0 (indent + 1) ^ ")"
   | TmTag (s, t, ty) -> "<" ^ s ^ " = " ^ string_of_term_prec t 0 (indent + 1) ^ "> as " ^ string_of_ty ty 
   | TmCase (t, cases) -> 
-      let rec f = function
-          [] -> ""
-        | (s, id, tm)::[] -> s ^ " " ^ id ^ " => " ^ string_of_term_prec tm 0 (indent + 1)
-        | (s, id, tm)::t -> s ^ " " ^ id ^ " => " ^ string_of_term_prec tm 0 (indent + 1) ^ " | " ^ f t
-      in "case " ^ string_of_term_prec t 0 (indent + 1) ^ " of " ^ f cases
-
+    let rec f = function
+        [] -> ""
+      | (s, id, tm)::[] -> s ^ " " ^ id ^ " =>\n" ^ indent_str (indent + 1) ^ string_of_term_prec tm 0 (indent + 1)
+      | (s, id, tm)::t -> s ^ " " ^ id ^ " =>\n" ^ indent_str (indent + 1) ^ string_of_term_prec tm 0 (indent + 1) ^ " |\n" ^ indent_str indent ^ f t
+    in "case " ^ string_of_term_prec t 0 (indent + 1) ^ " of\n" ^ indent_str (indent + 1) ^ f cases
   ;;
 
 
@@ -540,6 +546,8 @@ let rec isval tm = match tm with
   | TmRecord tms -> List.for_all (fun (_, tm) -> isval tm) tms
   | TmNil _ -> true
   | TmCons (_, t1, t2) -> isval t1 && isval t2
+  | TmTag (_, t, _) -> isval t
+  | TmCase (t,_) -> isval t
   | t when isnumericval t -> true
   | _ -> false
 ;;
@@ -703,7 +711,6 @@ let rec eval1 ctx tm = match tm with
 
   (* E-Tail *)
   | TmTail (ty, t) -> TmTail (ty, eval1 ctx t)  
-  
 
     (*E-CaseVariant*)
   | TmCase (TmTag (s, v, _), cases)
@@ -712,8 +719,8 @@ let rec eval1 ctx tm = match tm with
   
   (*E-Case*)
   | TmCase (t, cases) ->
-    let t1' = eval1 ctx t in
-    TmCase (t1', cases)
+    TmCase (eval1 ctx t, cases)
+
   (*E-Tag*)
   | TmTag (s, t, ty) ->
     TmTag (s, eval1 ctx t, ty)
@@ -726,7 +733,6 @@ let rec eval1 ctx tm = match tm with
 let apply_ctx ctx tm = 
   List.fold_left (fun t x -> subst x (getvbinding ctx x) t) tm (free_vars tm)  
 ;;
-
 
 
 let rec eval ctx tm =
